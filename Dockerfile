@@ -12,9 +12,7 @@ RUN npm install
 
 # 复制 app.js 到工作目录
 COPY app.js ./
-
-# 暴露容器的端口
-EXPOSE 3000
+COPY keys.json ./
 
 # 在容器启动时运行应用
 CMD [ "npm", "start" ]

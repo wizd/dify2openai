@@ -2,9 +2,21 @@ import express from "express";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import fs from "node:fs/promises";
+import path from "node:path";
+
 dotenv.config();
 
-
+async function getApiKeys() {
+  try {
+    const keysPath = path.join(process.cwd(), 'keys.json');
+    const keysData = await fs.readFile(keysPath, 'utf-8');
+    return JSON.parse(keysData);
+  } catch (error) {
+    console.error("读取 keys.json 文件时出错:", error);
+    return {};
+  }
+}
 
 if (!process.env.DIFY_API_URL) throw new Error("DIFY API URL is required.");
 function generateId() {
@@ -36,7 +48,7 @@ switch (botType) {
   default:
     throw new Error('Invalid bot type in the environment variable.');
 }
-var corsHeaders = {
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
@@ -84,38 +96,81 @@ app.get('/v1/models', (req, res) => {
 });
 
 app.post("/v1/chat/completions", async (req, res) => {
-  const authHeader =
-    req.headers["authorization"] || req.headers["Authorization"];
-  if (!authHeader) {
-    return res.status(401).json({
-      code: 401,
-      errmsg: "Unauthorized.",
-    });
-  } else {
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({
-        code: 401,
-        errmsg: "Unauthorized.",
-      });
-    }
-  }
+  let apiKey;
   try {
     const data = req.body;
     const messages = data.messages;
+
+    if (data.wf) {
+      // 如果请求体中包含 wf 参数，从 keys.json 获取 API 密钥
+      const apiKeys = await getApiKeys();
+      apiKey = apiKeys[data.wf];
+      if (!apiKey) {
+        return res.status(400).json({
+          code: 400,
+          errmsg: "无效的 wf 参数。未找到对应的 API 密钥。",
+        });
+      }
+    } else {
+      // 否则，使用原有的授权头方式
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (!authHeader) {
+        return res.status(401).json({
+          code: 401,
+          errmsg: "未授权。",
+        });
+      }
+      apiKey = authHeader.split(" ")[1];
+      if (!apiKey) {
+        return res.status(401).json({
+          code: 401,
+          errmsg: "未授权。",
+        });
+      }
+    }
+
+    // 从请求体获取 botType,如果不存在则使用环境变量
+    const requestBotType = data.bot || botType;
+    
+    let apiPath;
+    switch (requestBotType) {
+      case 'Chat':
+        apiPath = '/chat-messages';
+        break;
+      case 'Completion':
+        apiPath = '/completion-messages';
+        break;
+      case 'Workflow':
+        apiPath = '/workflows/run';
+        break;
+      default:
+        throw new Error('无效的 bot 类型。');
+    }
+
     let queryString;
-    if (botType === 'Chat') {
+    if (requestBotType === 'Chat') {
       const lastMessage = messages[messages.length - 1];
       queryString = `here is our talk history:\n'''\n${messages
         .slice(0, -1) 
         .map((message) => `${message.role}: ${message.content}`)
         .join('\n')}\n'''\n\nhere is my question:\n${lastMessage.content}`;
-    } else if (botType === 'Completion' || botType === 'Workflow') {
+    } else if (requestBotType === 'Completion' || requestBotType === 'Workflow') {
       queryString = messages[messages.length - 1].content;
     }
     const stream = data.stream !== undefined ? data.stream : false;
+    
     let requestBody;
-    if (inputVariable) {
+    if (data.inputs) {
+      // 如果请求体中已包含 inputs，直接使用
+      requestBody = {
+        inputs: data.inputs,
+        response_mode: "streaming",
+        conversation_id: "",
+        user: "apiuser",
+        auto_generate_name: false
+      };
+    } else if (inputVariable) {
+      // 如果没有 inputs 但有 inputVariable，使用现有逻辑
       requestBody = {
         inputs: { [inputVariable]: queryString },
         response_mode: "streaming",
@@ -124,8 +179,9 @@ app.post("/v1/chat/completions", async (req, res) => {
         auto_generate_name: false
       };
     } else {
+      // 如果既没有 inputs 也没有 inputVariable，使用 query
       requestBody = {
-        "inputs": {},
+        inputs: {},
         query: queryString,
         response_mode: "streaming",
         conversation_id: "",
@@ -137,7 +193,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${authHeader.split(" ")[1]}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(requestBody),
     });
@@ -153,7 +209,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       stream.on("data", (chunk) => {
 
         buffer += chunk.toString();
-        let lines = buffer.split("\n");
+        const lines = buffer.split("\n");
 
         for (let i = 0; i < lines.length - 1; i++) {
           let line = lines[i].trim();
@@ -190,8 +246,7 @@ app.post("/v1/chat/completions", async (req, res) => {
               
               if (!isResponseEnded) {
               res.write(
-                "data: " +
-                  JSON.stringify({
+                `data: ${JSON.stringify({
                     id: chunkId,
                     object: "chat.completion.chunk",
                     created: chunkCreated,
@@ -205,8 +260,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                         finish_reason: null,
                       },
                     ],
-                  }) +
-                  "\n\n"
+                  })}\n\n`
               );
             }
           } } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
@@ -214,8 +268,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             const chunkCreated = chunkObj.created_at;
             if (!isResponseEnded) {
             res.write(
-              "data: " +
-                JSON.stringify({
+              `data: ${JSON.stringify({
                   id: chunkId,
                   object: "chat.completion.chunk",
                   created: chunkCreated,
@@ -227,8 +280,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                       finish_reason: "stop",
                     },
                   ],
-                }) +
-                "\n\n"
+                })}\n\n`
             );
           }
           if (!isResponseEnded) {
@@ -270,7 +322,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       const stream = resp.body;
       stream.on("data", (chunk) => {
         buffer += chunk.toString();
-        let lines = buffer.split("\n");
+        const lines = buffer.split("\n");
 
         for (let i = 0; i < lines.length - 1; i++) {
           const line = lines[i].trim();
@@ -363,6 +415,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
   } catch (error) {
     console.error("Error:", error);
+    res.status(500).json({ error: "处理请求时发生错误。" });
   }
 });
 
