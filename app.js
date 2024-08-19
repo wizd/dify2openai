@@ -207,7 +207,6 @@ app.post("/v1/chat/completions", async (req, res) => {
       let isFirstChunk = true;
 
       stream.on("data", (chunk) => {
-
         buffer += chunk.toString();
         const lines = buffer.split("\n");
 
@@ -224,9 +223,11 @@ app.post("/v1/chat/completions", async (req, res) => {
               continue;
             }
           } catch (error) {
-            console.error("Error parsing chunk:", error);
+            console.error("解析块时出错:", error);
             continue;
           }
+
+          console.log("接收到的事件:", chunkObj.event); // 添加日志
 
           if (chunkObj.event === "message" || chunkObj.event === "agent_message" || chunkObj.event === "text_chunk") {
             let chunkContent;
@@ -235,7 +236,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             } else {
               chunkContent = chunkObj.answer;
             }
-    
+
             if (isFirstChunk) {
               chunkContent = chunkContent.trimStart();
               isFirstChunk = false;
@@ -244,26 +245,29 @@ app.post("/v1/chat/completions", async (req, res) => {
               const chunkId = `chatcmpl-${Date.now()}`;
               const chunkCreated = chunkObj.created_at;
               
+              const responseChunk = JSON.stringify({
+                id: chunkId,
+                object: "chat.completion.chunk",
+                created: chunkCreated,
+                model: data.model,
+                choices: [
+                  {
+                    index: 0,
+                    delta: {
+                      content: chunkContent,
+                    },
+                    finish_reason: null,
+                  },
+                ],
+              });
+              
+              console.log("发送的响应块:", responseChunk); // 添加日志
+              
               if (!isResponseEnded) {
-              res.write(
-                `data: ${JSON.stringify({
-                    id: chunkId,
-                    object: "chat.completion.chunk",
-                    created: chunkCreated,
-                    model: data.model,
-                    choices: [
-                      {
-                        index: 0,
-                        delta: {
-                          content: chunkContent,
-                        },
-                        finish_reason: null,
-                      },
-                    ],
-                  })}\n\n`
-              );
+                res.write(`data: ${responseChunk}\n\n`);
+              }
             }
-          } } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
+          } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
             const chunkId = `chatcmpl-${Date.now()}`;
             const chunkCreated = chunkObj.created_at;
             if (!isResponseEnded) {
