@@ -360,7 +360,12 @@ app.post("/v1/chat/completions", async (req, res) => {
             if (outputVariable) {
               result = outputs[outputVariable];
             } else {
-              result = outputs;
+              // 如果 outputVariable 未定义，我们需要正确处理 outputs 对象
+              if (typeof outputs === 'object' && outputs !== null) {
+                result = JSON.stringify(outputs);
+              } else {
+                result = String(outputs);
+              }
             }
             result = String(result);
             usageData = {
