@@ -214,7 +214,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       let isFirstChunk = true;
 
       stream.on("data", (chunk) => {
-        console.log("接收到的Chunk:", chunk.toString().slice(0, 60));
+        //console.log("接收到的Chunk:", chunk.toString().slice(0, 60));
         buffer += chunk.toString();
         const lines = buffer.split("\n");
 
