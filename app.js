@@ -30,8 +30,8 @@ function generateId() {
 }
 const app = express();
 app.use(bodyParser.json());
-const botType = process.env.BOT_TYPE || 'Chat';
-const inputVariable = process.env.INPUT_VARIABLE || '';
+const botType = process.env.BOT_TYPE || 'Workflow';
+const inputVariable = process.env.INPUT_VARIABLE || 'query';
 const outputVariable = process.env.OUTPUT_VARIABLE || '';
 
 let apiPath;
@@ -48,11 +48,11 @@ switch (botType) {
   default:
     throw new Error('Invalid bot type in the environment variable.');
 }
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",
+  "Access-Control-Allow-Methods": "*",
+  "Access-Control-Allow-Headers": "*",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -80,19 +80,23 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.get('/v1/models', (req, res) => {
-  const models = {
-    "object": "list",
-    "data": [
-      {
-        "id": process.env.MODELS_NAME || "dify",
+app.get('/v1/models', async (req, res) => {
+  try {
+    const apiKeys = await getApiKeys();
+    const models = {
+      "object": "list",
+      "data": Object.keys(apiKeys).map(key => ({
+        "id": key,
         "object": "model",
         "owned_by": "dify",
         "permission": null,
-      }
-    ]
-  };
-  res.json(models);
+      }))
+    };
+    res.json(models);
+  } catch (error) {
+    console.error("获取模型列表时出错:", error);
+    res.status(500).json({ error: "获取模型列表时发生错误。" });
+  }
 });
 
 app.post("/v1/chat/completions", async (req, res) => {
@@ -101,9 +105,9 @@ app.post("/v1/chat/completions", async (req, res) => {
     const data = req.body;
     const messages = data.messages;
 
+    const apiKeys = await getApiKeys();
     if (data.wf) {
       // 如果请求体中包含 wf 参数，从 keys.json 获取 API 密钥
-      const apiKeys = await getApiKeys();
       apiKey = apiKeys[data.wf];
       if (!apiKey) {
         return res.status(400).json({
@@ -111,7 +115,10 @@ app.post("/v1/chat/completions", async (req, res) => {
           errmsg: "无效的 wf 参数。未找到对应的 API 密钥。",
         });
       }
-    } else {
+    } else if(data.model && apiKeys[data.model]) {
+      apiKey = apiKeys[data.model];
+    }
+    else {
       // 否则，使用原有的授权头方式
       const authHeader = req.headers.authorization || req.headers.Authorization;
       if (!authHeader) {
