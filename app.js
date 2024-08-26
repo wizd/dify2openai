@@ -418,7 +418,21 @@ app.post("/v1/chat/completions", async (req, res) => {
           res.set("Content-Type", "application/json");
           res.send(jsonResponse);
         } else {
-          res.status(500).json({ error: "Unexpected end of stream." });
+          console.error("诊断信息: 意外的流结束");
+          console.error("缓冲区内容:", buffer);
+          console.error("结果:", result);
+          console.error("消息是否结束:", messageEnded);
+          console.error("使用数据:", usageData);
+          
+          res.status(500).json({ 
+            error: "Unexpected end of stream.", 
+            diagnostics: {
+              buffer: buffer,
+              result: result,
+              messageEnded: messageEnded,
+              usageData: usageData
+            }
+          });
         }
       });
     }
