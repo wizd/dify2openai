@@ -9,7 +9,7 @@ dotenv.config();
 
 async function getApiKeys() {
   try {
-    const keysPath = path.join(process.cwd(), 'keys.json');
+    const keysPath = path.join(process.cwd(), '/data/keys.json');
     const keysData = await fs.readFile(keysPath, 'utf-8');
     return JSON.parse(keysData);
   } catch (error) {
@@ -289,7 +289,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             if (!isResponseEnded) {
               // write the output of workflow first
               if (chunkObj.event === "workflow_finished") {
-                const output = chunkObj.data.outputs.output;
+                const output = chunkObj.data.outputs.output ?? chunkObj.data.outputs.result;
 
                 const chunkId = `chatcmpl-${Date.now()}`;
                 const chunkCreated = chunkObj.created_at;
