@@ -7,8 +7,8 @@ services:
       dockerfile: Dockerfile
     network_mode: bridge
     ports:
-      - "3000:3000"
+      - "5040:5040"
     restart: always
     environment: 
-      - DIFY_API_URL=https://api.dify.ai/v1
-      - BOT_TYPE=Chat
+      - DIFY_API_URL=http://192.168.3.80/v1
+      - PORT=5040
