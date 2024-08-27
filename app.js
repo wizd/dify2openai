@@ -222,6 +222,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       const stream = resp.body;
       let buffer = "";
       let isFirstChunk = true;
+      let hasReceivedTextChunk = false;  // 新增变量，用于跟踪是否接收过 text_chunk
 
       stream.on("data", (chunk) => {
         //console.log("接收到的Chunk:", chunk.toString().slice(0, 60));
@@ -251,6 +252,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             let chunkContent;
             if (chunkObj.event === "text_chunk") {
               chunkContent = chunkObj.data.text;
+              hasReceivedTextChunk = true;  // 标记已接收到 text_chunk
             } else {
               chunkContent = chunkObj.answer;
             }
@@ -287,8 +289,8 @@ app.post("/v1/chat/completions", async (req, res) => {
             }
           } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
             if (!isResponseEnded) {
-              // write the output of workflow first
-              if (chunkObj.event === "workflow_finished") {
+              // 只有在没有接收过 text_chunk 时才发送 workflow 输出
+              if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
                 const output = chunkObj.data.outputs.output ?? chunkObj.data.outputs.result;
 
                 const chunkId = `chatcmpl-${Date.now()}`;
