@@ -170,7 +170,11 @@ app.post("/v1/chat/completions", async (req, res) => {
     if (data.inputs) {
       // 如果请求体中已包含 inputs，直接使用
       requestBody = {
-        inputs: data.inputs,
+        inputs: {
+          ...data.inputs,
+          ...(data.paths && { paths: data.paths }),
+          ...(data.space && { space: data.space }),
+        },
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -179,7 +183,10 @@ app.post("/v1/chat/completions", async (req, res) => {
     } else if (inputVariable) {
       // 如果没有 inputs 但有 inputVariable，使用现有逻辑
       requestBody = {
-        inputs: { [inputVariable]: queryString },
+        inputs: { [inputVariable]: queryString,
+          ...(data.paths && { paths: data.paths }),
+          ...(data.space && { space: data.space }),
+         },
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -188,7 +195,10 @@ app.post("/v1/chat/completions", async (req, res) => {
     } else {
       // 如果既没有 inputs 也没有 inputVariable，使用 query
       requestBody = {
-        inputs: {},
+        inputs: {
+          ...(data.paths && { paths: data.paths }),
+          ...(data.space && { space: data.space }),
+         },
         query: queryString,
         response_mode: "streaming",
         conversation_id: "",
