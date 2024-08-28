@@ -30,8 +30,8 @@ function generateId() {
 }
 const app = express();
 app.use(bodyParser.json());
-const botType = process.env.BOT_TYPE || 'Workflow';
-const inputVariable = process.env.INPUT_VARIABLE || 'query';
+const botType = process.env.BOT_TYPE || 'Chat';
+const inputVariable = process.env.INPUT_VARIABLE || '';
 const outputVariable = process.env.OUTPUT_VARIABLE || '';
 
 let apiPath;
@@ -167,6 +167,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     const stream = data.stream !== undefined ? data.stream : false;
     
     let requestBody;
+
     if (data.inputs) {
       // 如果请求体中已包含 inputs，直接使用
       requestBody = {
@@ -183,10 +184,11 @@ app.post("/v1/chat/completions", async (req, res) => {
     } else if (inputVariable) {
       // 如果没有 inputs 但有 inputVariable，使用现有逻辑
       requestBody = {
-        inputs: { [inputVariable]: queryString,
+        inputs: {
+          [inputVariable]: queryString,
           ...(data.paths && { paths: data.paths }),
           ...(data.space && { space: data.space }),
-         },
+        },
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -196,9 +198,10 @@ app.post("/v1/chat/completions", async (req, res) => {
       // 如果既没有 inputs 也没有 inputVariable，使用 query
       requestBody = {
         inputs: {
+          query: queryString,
           ...(data.paths && { paths: data.paths }),
           ...(data.space && { space: data.space }),
-         },
+        },
         query: queryString,
         response_mode: "streaming",
         conversation_id: "",
@@ -206,6 +209,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         auto_generate_name: false
       };
     }
+
     const resp = await fetch(process.env.DIFY_API_URL + apiPath, {
       method: "POST",
       headers: {
@@ -246,7 +250,12 @@ app.post("/v1/chat/completions", async (req, res) => {
             continue;
           }
 
-          console.log("接收到的事件:", chunkObj.event); // 添加日志
+          if (chunkObj.event === "node_started") {
+            console.log("节点开始执行:", chunkObj.data.title); // 添加日志
+          }
+          else {
+            console.log("接收到的事件:", chunkObj.event); // 添加日志
+          }
 
           if (chunkObj.event === "message" || chunkObj.event === "agent_message" || chunkObj.event === "text_chunk") {
             let chunkContent;
@@ -292,7 +301,7 @@ app.post("/v1/chat/completions", async (req, res) => {
               // 只有在没有接收过 text_chunk 时才发送 workflow 输出
               if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
                 const output = chunkObj.data.outputs.output ?? chunkObj.data.outputs.result;
-
+                const finalOutput = JSON.parse(output);
                 const chunkId = `chatcmpl-${Date.now()}`;
                 const chunkCreated = chunkObj.created_at;
                 
@@ -305,7 +314,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                     {
                       index: 0,
                       delta: {
-                        content: output,
+                        content: finalOutput.output ?? finalOutput.result,
                       },
                       finish_reason: null,
                     },
