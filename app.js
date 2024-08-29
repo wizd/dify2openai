@@ -301,7 +301,21 @@ app.post("/v1/chat/completions", async (req, res) => {
               // 只有在没有接收过 text_chunk 时才发送 workflow 输出
               if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
                 const output = chunkObj.data.outputs.output ?? chunkObj.data.outputs.result;
-                const finalOutput = JSON.parse(output);
+                console.log("原始输出:", output); // 添加调试日志
+
+                let finalOutput;
+                try {
+                  finalOutput = JSON.parse(output);
+                } catch (error) {
+                  console.error("JSON 解析错误:", error);
+                  finalOutput = { output: output }; // 如果解析失败，使用原始输出
+                }
+
+                console.log("解析后的 finalOutput:", finalOutput); // 添加调试日志
+
+                const content = finalOutput.output ?? finalOutput.result ?? JSON.stringify(finalOutput);
+                console.log("选择的内容:", content); // 添加调试日志
+
                 const chunkId = `chatcmpl-${Date.now()}`;
                 const chunkCreated = chunkObj.created_at;
                 
@@ -314,12 +328,14 @@ app.post("/v1/chat/completions", async (req, res) => {
                     {
                       index: 0,
                       delta: {
-                        content: finalOutput.output ?? finalOutput.result,
+                        content: content, // 确保这里使用处理后的 content
                       },
                       finish_reason: null,
                     },
                   ],
                 });
+
+                console.log("发送的响应块:", responseChunk); // 添加调试日志
 
                 res.write(`data: ${responseChunk}\n\n`);
               }
