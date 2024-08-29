@@ -300,20 +300,24 @@ app.post("/v1/chat/completions", async (req, res) => {
             if (!isResponseEnded) {
               // 只有在没有接收过 text_chunk 时才发送 workflow 输出
               if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
-                const output = chunkObj.data.outputs.output ?? chunkObj.data.outputs.result;
+                const output = chunkObj.data?.outputs?.output ?? chunkObj.data?.outputs?.result;
                 console.log("原始输出:", output); // 添加调试日志
 
                 let finalOutput;
-                try {
-                  finalOutput = JSON.parse(output);
-                } catch (error) {
-                  console.error("JSON 解析错误:", error);
-                  finalOutput = { output: output }; // 如果解析失败，使用原始输出
+                if (output !== undefined && output !== null) {
+                  try {
+                    finalOutput = typeof output === 'string' ? JSON.parse(output) : output;
+                  } catch (error) {
+                    console.error("JSON 解析错误:", error);
+                    finalOutput = { output: output }; // 如果解析失败，使用原始输出
+                  }
+                } else {
+                  finalOutput = { output: "无输出" };
                 }
 
                 console.log("解析后的 finalOutput:", finalOutput); // 添加调试日志
 
-                const content = finalOutput.output ?? finalOutput.result ?? JSON.stringify(finalOutput);
+                const content = finalOutput.output?.result ?? finalOutput.output ?? finalOutput.result ?? JSON.stringify(finalOutput);
                 console.log("选择的内容:", content); // 添加调试日志
 
                 const chunkId = `chatcmpl-${Date.now()}`;
@@ -328,7 +332,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                     {
                       index: 0,
                       delta: {
-                        content: content, // 确保这里使用处理后的 content
+                        content: content.result ?? content, // 确保这里使用处理后的 content
                       },
                       finish_reason: null,
                     },
