@@ -155,12 +155,25 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
 
     let queryString;
+    let cmdString, cmdArgString;
     if (requestBotType === 'Chat') {
       const lastMessage = messages[messages.length - 1];
-      queryString = `here is our talk history:\n'''\n${messages
-        .slice(0, -1) 
-        .map((message) => `${message.role}: ${message.content}`)
-        .join('\n')}\n'''\n\nhere is my question:\n${lastMessage.content}`;
+
+      queryString = messages
+        .slice(0, -1)
+        .map(message => message.content)
+        .join('\n'); // 将消息内容连接成一个字符串
+
+      if (typeof queryString === 'string') {
+        const arrStrings = queryString.split(':')
+          .map(a => a.trim());
+        cmdString = arrStrings[0];
+        cmdArgString = arrStrings[1];
+      } else {
+        console.error('queryString 不是一个字符串:', queryString);
+        cmdString = '';
+        cmdArgString = '';
+      }
     } else if (requestBotType === 'Completion' || requestBotType === 'Workflow') {
       queryString = messages[messages.length - 1].content;
     }
@@ -198,11 +211,12 @@ app.post("/v1/chat/completions", async (req, res) => {
       // 如果既没有 inputs 也没有 inputVariable，使用 query
       requestBody = {
         inputs: {
-          query: queryString,
+          ...(cmdString && { cmd: cmdString }),
+          ...(cmdArgString && { arg: cmdArgString }),
           ...(data.paths && { paths: data.paths }),
           ...(data.space && { space: data.space }),
         },
-        query: queryString,
+        query: messages[messages.length - 1].content,
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -306,9 +320,9 @@ app.post("/v1/chat/completions", async (req, res) => {
                 let finalOutput;
                 if (output !== undefined && output !== null) {
                   try {
-                    finalOutput = typeof output === 'string' ? JSON.parse(output) : output;
+                    finalOutput = typeof output === 'string' && output.startsWith('{') ? JSON.parse(output) : output;
                   } catch (error) {
-                    console.error("JSON 解析错误:", error);
+                    console.error(`JSON 解析错误 for ${output}:`, error);
                     finalOutput = { output: output }; // 如果解析失败，使用原始输出
                   }
                 } else {
