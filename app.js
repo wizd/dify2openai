@@ -326,7 +326,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                     finalOutput = { output: output }; // 如果解析失败，使用原始输出
                   }
                 } else {
-                  finalOutput = { output: "无输出" };
+                  finalOutput = { output: "" };
                 }
 
                 console.log("解析后的 finalOutput:", finalOutput); // 添加调试日志
