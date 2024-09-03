@@ -105,10 +105,12 @@ app.post("/v1/chat/completions", async (req, res) => {
     const data = req.body;
     const messages = data.messages;
 
+    console.log("model:", data.model);
+
     const apiKeys = await getApiKeys();
-    if (data.wf) {
+    if (data.wf || data.model === 'BackOffice') {
       // 如果请求体中包含 wf 参数，从 keys.json 获取 API 密钥
-      apiKey = apiKeys[data.wf];
+      apiKey = apiKeys[data.wf ?? 'backoffice'];
       if (!apiKey) {
         return res.status(400).json({
           code: 400,
@@ -267,7 +269,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           if (chunkObj.event === "node_started") {
             console.log("节点开始执行:", chunkObj.data.title); // 添加日志
           }
-          else {
+          else if (chunkObj.event !== "message") {
             console.log("接收到的事件:", chunkObj.event); // 添加日志
           }
 
@@ -277,7 +279,19 @@ app.post("/v1/chat/completions", async (req, res) => {
               chunkContent = chunkObj.data.text;
               hasReceivedTextChunk = true;  // 标记已接收到 text_chunk
             } else {
-              chunkContent = chunkObj.answer;
+              if (chunkObj.event === "message") {
+                const ans = chunkObj.answer.trim();
+                if (ans.startsWith("{") && ans.endsWith("}")) {
+                  const opt = JSON.parse(ans);
+                  chunkContent = opt.result ?? opt.output ?? opt.text ?? ans;
+                }
+                else {
+                  chunkContent = ans;
+                }
+              }
+              else {
+                chunkContent = chunkObj.answer;
+              }
             }
 
             if (isFirstChunk) {
@@ -304,17 +318,17 @@ app.post("/v1/chat/completions", async (req, res) => {
                 ],
               });
               
-              console.log("发送的响应块:", responseChunk); // 添加日志
+              //console.log("发送的响应块:", responseChunk); // 添加日志
               
               if (!isResponseEnded) {
                 res.write(`data: ${responseChunk}\n\n`);
               }
             }
           } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
-            if (!isResponseEnded) {
+            if (false && !isResponseEnded) {
               // 只有在没有接收过 text_chunk 时才发送 workflow 输出
               if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
-                const output = chunkObj.data?.outputs?.output ?? chunkObj.data?.outputs?.result;
+                const output = chunkObj.data?.outputs?.output ?? chunkObj.data?.outputs?.result ?? chunkObj.data?.outputs?.answer;
                 console.log("原始输出:", output); // 添加调试日志
 
                 let finalOutput;
@@ -331,7 +345,7 @@ app.post("/v1/chat/completions", async (req, res) => {
 
                 console.log("解析后的 finalOutput:", finalOutput); // 添加调试日志
 
-                const content = finalOutput.output?.result ?? finalOutput.output ?? finalOutput.result ?? JSON.stringify(finalOutput);
+                const content = finalOutput.output?.result ?? finalOutput.output ?? finalOutput.result ?? finalOutput.text ?? JSON.stringify(finalOutput);
                 console.log("选择的内容:", content); // 添加调试日志
 
                 const chunkId = `chatcmpl-${Date.now()}`;
@@ -353,7 +367,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                   ],
                 });
 
-                console.log("发送的响应块:", responseChunk); // 添加调试日志
+                //console.log("发送的响应块:", responseChunk); // 添加调试日志
 
                 res.write(`data: ${responseChunk}\n\n`);
               }
