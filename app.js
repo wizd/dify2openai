@@ -294,8 +294,17 @@ app.post("/v1/chat/completions", async (req, res) => {
               }
             }
 
+            if (chunkContent !== undefined && chunkContent !== null) {
+              if (typeof chunkContent === 'string') {
+                chunkContent = chunkContent.trimStart();
+              } else {
+                chunkContent = String(chunkContent).trimStart();
+              }
+            } else {
+              chunkContent = "";
+            }
+
             if (isFirstChunk) {
-              chunkContent = chunkContent.trimStart();
               isFirstChunk = false;
             }
             if (chunkContent !== "") {
