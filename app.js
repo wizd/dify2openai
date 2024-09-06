@@ -175,10 +175,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     if (requestBotType === 'Chat') {
       const lastMessage = messages[messages.length - 1];
 
-      queryString = messages
-        .slice(0, -1)
-        .map(message => message.content)
-        .join('\n'); // 将消息内容连接成一个字符串
+      queryString = remainingString
 
       if (typeof queryString === 'string') {
         const arrStrings = queryString.split(':')
@@ -197,7 +194,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     
     let requestBody;
 
-    if (possibleJson.inputs) {
+    if (possibleJson.inputs || possibleJson.inputs) {
       // 如果请求体中已包含 inputs，直接使用
       requestBody = {
         inputs: {
@@ -232,7 +229,10 @@ app.post("/v1/chat/completions", async (req, res) => {
           ...(possibleJson.paths && { paths: possibleJson.paths }),
           ...(possibleJson.space && { space: possibleJson.space }),
         },
-        query: messages[messages.length - 1].content,
+        query: messages
+          .filter(message => message.role !== 'system')
+          .map(message => message.content)
+          .join('\n'),
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -293,42 +293,17 @@ app.post("/v1/chat/completions", async (req, res) => {
               chunkContent = chunkObj.data.text;
               hasReceivedTextChunk = true;  // 标记已接收到 text_chunk
             } else {
-              if (chunkObj.event === "message") {
-                const ans = chunkObj.answer.trim();
-                if (ans.startsWith("{") && ans.endsWith("}")) {
-                  const opt = JSON.parse(ans);
-                  chunkContent = opt.result ?? opt.output ?? opt.text ?? ans;
-                }
-                else {
-                  chunkContent = ans;
-                }
-              }
-              else {
-                chunkContent = chunkObj.answer;
-              }
-            }
-
-            if (chunkContent !== undefined && chunkContent !== null) {
-              if (typeof chunkContent === 'string') {
-                chunkContent = chunkContent.replace(/\s+/g, ' ').trim();
-              } else {
-                chunkContent = String(chunkContent).replace(/\s+/g, ' ').trim();
-              }
-            } else {
-              chunkContent = "";
+              chunkContent = chunkObj.answer;
             }
 
             if (isFirstChunk) {
               isFirstChunk = false;
             }
             if (chunkContent !== "") {
-              const chunkId = `chatcmpl-${Date.now()}`;
-              const chunkCreated = chunkObj.created_at;
-              
-              const responseChunk = JSON.stringify({
-                id: chunkId,
+              const openAIFormatChunk = {
+                id: `chatcmpl-${Date.now()}`,
                 object: "chat.completion.chunk",
-                created: chunkCreated,
+                created: Math.floor(Date.now() / 1000),
                 model: data.model,
                 choices: [
                   {
@@ -339,9 +314,10 @@ app.post("/v1/chat/completions", async (req, res) => {
                     finish_reason: null,
                   },
                 ],
-              });
+              };
               
-              //console.log("发送的响应块:", responseChunk); // 添加日志
+              const responseChunk = JSON.stringify(openAIFormatChunk);
+              console.log("发送的响应块:", responseChunk);
               
               if (!isResponseEnded) {
                 res.write(`data: ${responseChunk}\n\n`);
