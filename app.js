@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import fetch from "node-fetch";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { extractPossibleJson } from "./util.js";
 
 dotenv.config();
 
@@ -105,7 +106,20 @@ app.post("/v1/chat/completions", async (req, res) => {
     const data = req.body;
     const messages = data.messages;
 
+    // 从messages中获取system message的内容
+    let systemMessage = '';
+    for (const message of messages) {
+      if (message.role === 'system') {
+        systemMessage = message.content;
+        break;
+      }
+    }
+    console.log("系统消息内容:", systemMessage);
     console.log("model:", data.model);
+
+    const { possibleJson, remainingString } = extractPossibleJson(systemMessage);
+    console.log("可能的JSON对象:", possibleJson);
+    console.log("剩余字符串:", remainingString);
 
     const apiKeys = await getApiKeys();
     if (data.wf || data.model === 'BackOffice') {
@@ -139,7 +153,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
 
     // 从请求体获取 botType,如果不存在则使用环境变量
-    const requestBotType = data.bot || botType;
+    const requestBotType = possibleJson.bot || botType;
     
     let apiPath;
     switch (requestBotType) {
@@ -183,13 +197,13 @@ app.post("/v1/chat/completions", async (req, res) => {
     
     let requestBody;
 
-    if (data.inputs) {
+    if (possibleJson.inputs) {
       // 如果请求体中已包含 inputs，直接使用
       requestBody = {
         inputs: {
-          ...data.inputs,
-          ...(data.paths && { paths: data.paths }),
-          ...(data.space && { space: data.space }),
+          ...possibleJson.inputs,
+          ...(possibleJson.paths && { paths: possibleJson.paths }),
+          ...(possibleJson.space && { space: possibleJson.space }),
         },
         response_mode: "streaming",
         conversation_id: "",
@@ -201,8 +215,8 @@ app.post("/v1/chat/completions", async (req, res) => {
       requestBody = {
         inputs: {
           [inputVariable]: queryString,
-          ...(data.paths && { paths: data.paths }),
-          ...(data.space && { space: data.space }),
+          ...(possibleJson.paths && { paths: possibleJson.paths }),
+          ...(possibleJson.space && { space: possibleJson.space }),
         },
         response_mode: "streaming",
         conversation_id: "",
@@ -215,8 +229,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         inputs: {
           ...(cmdString && { cmd: cmdString }),
           ...(cmdArgString && { arg: cmdArgString }),
-          ...(data.paths && { paths: data.paths }),
-          ...(data.space && { space: data.space }),
+          ...(possibleJson.paths && { paths: possibleJson.paths }),
+          ...(possibleJson.space && { space: possibleJson.space }),
         },
         query: messages[messages.length - 1].content,
         response_mode: "streaming",
@@ -296,9 +310,9 @@ app.post("/v1/chat/completions", async (req, res) => {
 
             if (chunkContent !== undefined && chunkContent !== null) {
               if (typeof chunkContent === 'string') {
-                chunkContent = chunkContent.trimStart();
+                chunkContent = chunkContent.replace(/\s+/g, ' ').trim();
               } else {
-                chunkContent = String(chunkContent).trimStart();
+                chunkContent = String(chunkContent).replace(/\s+/g, ' ').trim();
               }
             } else {
               chunkContent = "";
