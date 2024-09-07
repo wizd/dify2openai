@@ -292,7 +292,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             console.log("节点开始执行:", chunkObj.data.title); // 添加日志
           }
           else if (chunkObj.event !== "message") {
-            console.log("接收到的事件:", chunkObj.event); // 添加日志
+            //console.log("接收到的事件:", chunkObj.event); // 添加日志
           }
 
           if (chunkObj.event === "message" || chunkObj.event === "agent_message" || chunkObj.event === "text_chunk") {
