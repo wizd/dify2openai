@@ -153,7 +153,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
 
     // 从请求体获取 botType,如果不存在则使用环境变量
-    const requestBotType = possibleJson.bot || botType;
+    const requestBotType = possibleJson?.bot || data.bot || botType;
     
     let apiPath;
     switch (requestBotType) {
@@ -194,7 +194,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     
     let requestBody;
 
-    if (possibleJson.inputs || possibleJson.inputs) {
+    if (possibleJson?.inputs) {
       // 如果请求体中已包含 inputs，直接使用
       requestBody = {
         inputs: {
@@ -202,6 +202,14 @@ app.post("/v1/chat/completions", async (req, res) => {
           ...(possibleJson.paths && { paths: possibleJson.paths }),
           ...(possibleJson.space && { space: possibleJson.space }),
         },
+        response_mode: "streaming",
+        conversation_id: "",
+        user: "apiuser",
+        auto_generate_name: false
+      };
+    } else if (data.inputs) {
+      requestBody = {
+        inputs: data.inputs,
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
@@ -317,7 +325,7 @@ app.post("/v1/chat/completions", async (req, res) => {
               };
               
               const responseChunk = JSON.stringify(openAIFormatChunk);
-              console.log("发送的响应块:", responseChunk);
+              //console.log("发送的响应块:", responseChunk);
               
               if (!isResponseEnded) {
                 res.write(`data: ${responseChunk}\n\n`);
