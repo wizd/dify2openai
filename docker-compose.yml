@@ -9,7 +9,7 @@ services:
       - "5040:5040"
     restart: always
     volumes:
-      - /home/wizard/data/dify2openai:/usr/src/app/data
+      - ../files/keys.json:/usr/src/app/keys.json
     environment: 
       - DIFY_API_URL=http://192.168.3.88/v1
       - BOT_TYPE=Chat
