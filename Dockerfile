@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm install
 
 # 复制 app.js 到工作目录
-COPY app.js ./
+COPY *.js ./
 
 # 复制 keys_example.json 文件到容器中
 RUN mkdir -p /usr/src/app/data

@@ -2,7 +2,8 @@ version: '3.5'
 services:
   dify2openai:
     container_name: dify2openai
-    image: dify2openai:latest
+    #image: dify2openai:latest
+    build: .
     network_mode: bridge
     ports:
       - "5040:5040"
