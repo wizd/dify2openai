@@ -10,5 +10,6 @@ services:
     volumes:
       - ../files/home/wizard/data/dify2openai/:/usr/src/app/data
     environment: 
+      - DIFY_API_URL=http://192.168.3.88/v1
       - BOT_TYPE=Chat
       - PORT=5040
