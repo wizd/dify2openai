@@ -114,12 +114,12 @@ app.post("/v1/chat/completions", async (req, res) => {
         break;
       }
     }
-    console.log("系统消息内容:", systemMessage);
+    //console.log("系统消息内容:", systemMessage);
     console.log("model:", data.model);
 
     const { possibleJson, remainingString } = extractPossibleJson(systemMessage);
-    console.log("可能的JSON对象:", possibleJson);
-    console.log("剩余字符串:", remainingString);
+    // console.log("可能的JSON对象:", possibleJson);
+    // console.log("剩余字符串:", remainingString);
 
     const apiKeys = await getApiKeys();
     if (data.wf || data.model === 'BackOffice') {
@@ -329,10 +329,12 @@ app.post("/v1/chat/completions", async (req, res) => {
               
               if (!isResponseEnded) {
                 res.write(`data: ${responseChunk}\n\n`);
+                hasReceivedTextChunk = true;
               }
             }
           } else if (chunkObj.event === "workflow_finished" || chunkObj.event === "message_end") {
-            if (false && !isResponseEnded) {
+            console.log("运行结束消息:", chunkObj.event, "收到过chunk？", hasReceivedTextChunk);
+            if (!isResponseEnded) {
               // 只有在没有接收过 text_chunk 时才发送 workflow 输出
               if (chunkObj.event === "workflow_finished" && !hasReceivedTextChunk) {
                 const output = chunkObj.data?.outputs?.output ?? chunkObj.data?.outputs?.result ?? chunkObj.data?.outputs?.answer;
@@ -374,7 +376,7 @@ app.post("/v1/chat/completions", async (req, res) => {
                   ],
                 });
 
-                //console.log("发送的响应块:", responseChunk); // 添加调试日志
+                console.log("发送的响应块:", responseChunk); // 添加调试日志
 
                 res.write(`data: ${responseChunk}\n\n`);
               }
