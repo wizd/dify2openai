@@ -20,6 +20,9 @@ async function getApiKeys() {
 }
 
 if (!process.env.DIFY_API_URL) throw new Error("DIFY API URL is required.");
+console.log("DIFY_API_URL:", process.env.DIFY_API_URL);
+console.log("using keys:", await getApiKeys());
+
 function generateId() {
   let result = "";
   const characters =
