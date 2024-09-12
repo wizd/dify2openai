@@ -119,6 +119,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
     //console.log("系统消息内容:", systemMessage);
     console.log("model:", data.model);
+    console.log("wf:", data.wf);
 
     const { possibleJson, remainingString } = extractPossibleJson(systemMessage);
     // console.log("可能的JSON对象:", possibleJson);
@@ -178,7 +179,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     if (requestBotType === 'Chat') {
       const lastMessage = messages[messages.length - 1];
 
-      queryString = remainingString
+      queryString = lastMessage.content;
 
       if (typeof queryString === 'string') {
         const arrStrings = queryString.split(':')
@@ -208,7 +209,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
-        auto_generate_name: false
+        auto_generate_name: false,
+        query: queryString
       };
     } else if (data.inputs) {
       requestBody = {
