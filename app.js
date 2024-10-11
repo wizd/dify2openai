@@ -239,7 +239,10 @@ app.post("/v1/chat/completions", async (req, res) => {
       };
     } else {
       // 修改这部分逻辑
+      const historyMessages = messages.filter(message => message.role !== 'system');
+      const formattedHistory = historyMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
       const lastUserMessage = messages.filter(message => message.role === 'user').pop();
+
       requestBody = {
         inputs: {
           ...(cmdString && { cmd: cmdString }),
@@ -247,7 +250,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           ...(possibleJson?.paths && { paths: possibleJson.paths }),
           ...(possibleJson?.space && { space: possibleJson.space }),
         },
-        query: lastUserMessage ? lastUserMessage.content : '',
+        query: `以下三个反引号内是历史对话,不需回答,仅供参考:\n\n\`\`\`\n${formattedHistory}\n\`\`\`\n\n用户最新输入,需要回应: ${lastUserMessage ? lastUserMessage.content : ''}`,
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
