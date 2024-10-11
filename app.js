@@ -250,7 +250,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           ...(possibleJson?.paths && { paths: possibleJson.paths }),
           ...(possibleJson?.space && { space: possibleJson.space }),
         },
-        query: `以下三个反引号内是历史对话:\n\n\`\`\`\n${formattedHistory}\n\`\`\`\n\n用户最新输入: ${lastUserMessage ? lastUserMessage.content : ''}`,
+        query: `以下包括在三个反引号内的是对话历史:\n\n\`\`\`\n${formattedHistory}\n\`\`\`\n\n${lastUserMessage ? lastUserMessage.content : ''}`,
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
