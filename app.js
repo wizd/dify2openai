@@ -147,13 +147,15 @@ app.post("/v1/chat/completions", async (req, res) => {
           errmsg: "未授权。",
         });
       }
-      apiKey = authHeader.split(" ")[1];
-      if (!apiKey) {
-        return res.status(401).json({
-          code: 401,
-          errmsg: "未授权。",
-        });
-      }
+      const keys = await getApiKeys();
+      apiKey = keys[Object.keys(keys)[0]];
+      // apiKey = authHeader.split(" ")[1];
+      // if (!apiKey) {
+      //   return res.status(401).json({
+      //     code: 401,
+      //     errmsg: "未授权。",
+      //   });
+      // }
     }
 
     // 从请求体获取 botType,如果不存在则使用环境变量
@@ -239,8 +241,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         inputs: {
           ...(cmdString && { cmd: cmdString }),
           ...(cmdArgString && { arg: cmdArgString }),
-          ...(possibleJson.paths && { paths: possibleJson.paths }),
-          ...(possibleJson.space && { space: possibleJson.space }),
+          ...(possibleJson?.paths && { paths: possibleJson.paths }),
+          ...(possibleJson?.space && { space: possibleJson.space }),
         },
         query: messages
           .filter(message => message.role !== 'system')
