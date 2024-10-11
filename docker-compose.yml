@@ -10,6 +10,6 @@ services:
     volumes:
       - ../files/:/usr/src/app/data
     environment: 
-      - DIFY_API_URL=http://192.168.3.71:81/v1
+      - DIFY_API_URL=${DIFY_API_URL:-http://192.168.3.71:81/v1}
       - BOT_TYPE=Chat
       - PORT=5040
