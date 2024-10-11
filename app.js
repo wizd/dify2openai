@@ -201,7 +201,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     let requestBody;
 
     if (possibleJson?.inputs) {
-      // 如果请求体中已包含 inputs，直接使用
+      // 如果请求体中已包含 inputs，保持不变
       requestBody = {
         inputs: {
           ...possibleJson.inputs,
@@ -215,6 +215,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         query: queryString
       };
     } else if (data.inputs) {
+      // 如果有 data.inputs，保持不变
       requestBody = {
         inputs: data.inputs,
         response_mode: "streaming",
@@ -236,7 +237,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         auto_generate_name: false
       };
     } else {
-      // 如果既没有 inputs 也没有 inputVariable，使用 query
+      // 修改这部分逻辑
+      const lastUserMessage = messages.filter(message => message.role === 'user').pop();
       requestBody = {
         inputs: {
           ...(cmdString && { cmd: cmdString }),
@@ -244,10 +246,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           ...(possibleJson?.paths && { paths: possibleJson.paths }),
           ...(possibleJson?.space && { space: possibleJson.space }),
         },
-        query: messages
-          .filter(message => message.role !== 'system')
-          .map(message => message.content)
-          .join('\n'),
+        query: lastUserMessage ? lastUserMessage.content : '',
         response_mode: "streaming",
         conversation_id: "",
         user: "apiuser",
