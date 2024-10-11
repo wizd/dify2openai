@@ -108,6 +108,7 @@ app.post("/v1/chat/completions", async (req, res) => {
   try {
     const data = req.body;
     const messages = data.messages;
+    console.log("client send session_id:", data.session_id);
 
     // 从messages中获取system message的内容
     let systemMessage = '';
